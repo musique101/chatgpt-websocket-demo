@@ -29,7 +29,7 @@ public class WebSocketServer {
 
     private static final Logger log = LoggerFactory.getLogger(WebSocketServer.class);
 
-    private static final String apiKey = "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";
+    private static final String apiKey = "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";
 
     /**
      * 记录当前在线连接数
@@ -168,6 +168,7 @@ public class WebSocketServer {
         //新建chatgpt连接
         OpenAiService service = new OpenAiService(apiKey, Duration.ofSeconds(60L));
         String result = "";
+        Integer code = 0;
         if(text.startsWith("image#")){
             String substring = text.substring(5);
             //图像生成模式
@@ -175,6 +176,7 @@ public class WebSocketServer {
                     .prompt(substring).user("hlw").size("512x512").build();
             try {
                 result = service.createImage(createImageRequest).getData().get(0).getUrl();
+                code = 1;
             }catch (Exception e){
                 log.error(e.getMessage());
                 result = "ChatGPT发呆中....，请稍后再试";
@@ -187,13 +189,15 @@ public class WebSocketServer {
             try {
                 result = service.createCompletion(completionRequest).getChoices().get(0).getText();
             }catch (Exception e){
+                e.printStackTrace();
                 log.error(e.getMessage());
                 result = "ChatGPT发呆中....，请稍后再试";
             }
         }
         //返回消息给用户
         JSONObject jsonObject = new JSONObject();
-        jsonObject.set("code", 0);
+        //code 为0表示文本，1表示img
+        jsonObject.set("code", code);
         jsonObject.set("from", "ChatGPT");
         jsonObject.set("text", result);
         return jsonObject.toString();

@@ -21,6 +21,11 @@
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
         <java.version>1.8</java.version>
+        <spring-boot.version>2.5.2</spring-boot.version>
+        <docker.imageName.url>10.3.192.39:8777</docker.imageName.url>
+        <docker.plugin.version>1.4.13</docker.plugin.version>
+        <docker.namespace>chatgpt-web</docker.namespace>
+        <maven.build.timestamp.format>yyyyMMddHH</maven.build.timestamp.format>
     </properties>
 
     <dependencies>
@@ -97,20 +102,96 @@
             <version>0.10.0</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+            <version>3.0.6</version>
+        </dependency>
+
 
     </dependencies>
 
     <build>
+        <finalName>${project.artifactId}</finalName>
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-resources-plugin</artifactId>
-                <version>3.1.0</version>
-            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>3.0.0</version>
+                <version>${spring-boot.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-war-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <failOnMissingWebXml>false</failOnMissingWebXml>
+                    <warName>${project.artifactId}</warName>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>buildnumber-maven-plugin</artifactId>
+                <version>1.4</version>
+                <executions>
+                    <execution>
+                        <id>generate-timestamp</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>create-timestamp</goal>
+                        </goals>
+                        <configuration>
+                            <timestampFormat>MMddHHmmss</timestampFormat>
+                            <timestampPropertyName>buildTime</timestampPropertyName>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>generate-buildNumber</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>create</goal>
+                        </goals>
+                        <configuration>
+                            <scmConnectionUrl>scm:git:git@gitlab.lab.com/ms.git</scmConnectionUrl>
+                            <shortRevisionLength>8</shortRevisionLength>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>com.spotify</groupId>
+                <artifactId>dockerfile-maven-plugin</artifactId>
+                <version>${docker.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>default</id>
+                        <goals>
+                            <!--如果package时不想用docker打包,就注释掉这个goal-->
+                            <goal>build</goal>
+                            <goal>push</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <!-- 上下文路径配置，此处设置为项目根路径 用来读取Dockerfile-->
+                    <contextDirectory>${project.basedir}</contextDirectory>
+                    <!--使用Maven的setting.xml来配置账号密码-->
+                    <useMavenSettingsForAuth>true</useMavenSettingsForAuth>
+                    <!--上传路径/镜像构建名： Harbor地址/Harbor项目名/springboot项目名-->
+                    <repository>${docker.imageName.url}/${docker.namespace}/${project.artifactId}</repository>
+                    <!-- 标签,最终会显示在Harbor镜像的标签中 -->
+                    <tag>${maven.build.timestamp}</tag>
+                    <!-- 作为Dockerfile 文件传入,也就是Dockerfile 中 ARG JAR_FILE的值-->
+                    <buildArgs>
+                        <JAR_FILE>target/${project.build.finalName}.jar</JAR_FILE>
+                    </buildArgs>
+                </configuration>
             </plugin>
         </plugins>
     </build>
